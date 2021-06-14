@@ -14,7 +14,7 @@
                 <v-fade-transition>
                     <v-chip 
                         class="mx-1"
-                        v-if="cumpriuDoisTercosDaPena() && porcentagemPenaCumprida < 100"
+                        v-if="cumpriuDoisTercosDaPena && porcentagemPenaCumprida < 100"
                         transition="scale-transition"
                         text-color="white" 
                         color="red">
@@ -24,7 +24,7 @@
                 <v-fade-transition>
                     <v-chip 
                         class="mx-1"
-                        v-if="cumpriuMetadeDaPena() && !cumpriuDoisTercosDaPena()"
+                        v-if="cumpriuMetadeDaPena && !cumpriuDoisTercosDaPena"
                         transition="scale-transition"
                         text-color="white" 
                         color="blue">
@@ -34,7 +34,7 @@
                 <v-fade-transition>
                     <v-chip 
                         class="mx-1"
-                        v-if="cumpriuUmTercoDaPena() && !cumpriuMetadeDaPena()"
+                        v-if="cumpriuUmTercoDaPena && !cumpriuMetadeDaPena"
                         transition="scale-transition"
                         text-color="white" 
                         color="green">
@@ -67,14 +67,14 @@
             <v-col cols="12" class="py-0">
                 <v-checkbox
                 class="py-0"
-                label="Bons Comportamentos"
-                v-model="temBonsComportamentos">
+                label="Bons Antecedentes"
+                v-model="temBonsAntecedentes">
                 </v-checkbox>
             </v-col>
             <v-col cols="12" class="py-0">
                 <v-checkbox
                 class="py-0"
-                label="Reincidente em Crime Doloso"
+                :label="(ehCrimeHediondo) ? 'É reincidente no crime':'É reincidente em crime doloso'"
                 v-model="ehReincidenteEmCrimeDoloso">
                 </v-checkbox>
             </v-col>
@@ -84,6 +84,21 @@
                 label="Crime é considerado Hediondo (lei 8.079/90)"
                 v-model="ehCrimeHediondo">
                 </v-checkbox>
+            </v-col>
+        </v-row>
+        <v-row class="text-center mu-5" v-if="aptoAoLivramento != null">
+            <v-col cols="12">
+                <div class="text-h5">
+                    Status:
+                </div>
+            </v-col>
+            <v-col>
+                <div :class="(aptoAoLivramento.status ? 'green':'red') + '--text'">
+                    {{ aptoAoLivramento.status ? 'Apto ao livramento':'Não apto ao livramento: ' }}
+                </div>
+                <li v-for="motivo in aptoAoLivramento.motivos" :key="motivo">
+                    {{ motivo }}
+                </li>
             </v-col>
         </v-row>
     </v-container>
@@ -99,7 +114,7 @@ export default {
 
         ehReincidenteEmCrimeDoloso: false,
         ehCrimeHediondo: false,
-        temBonsComportamentos: true,
+        temBonsAntecedentes: true,
 
         regrasValidacao: {
             validacaoAnosTotais: [
@@ -119,9 +134,7 @@ export default {
             let porcentagem = (this.anosCumpridos / this.anosTotais) * 100;
             return parseInt(porcentagem);
         },
-    },
 
-    methods: {
         cumpriuUmTercoDaPena() {
             if (!this.anosTotais || !this.anosCumpridos)
                 return false;
@@ -129,6 +142,7 @@ export default {
             let umTercoDaPena = this.anosTotais / 3;
             return this.anosCumpridos >= umTercoDaPena;
         },
+
         cumpriuMetadeDaPena() {
             if (!this.anosTotais || !this.anosCumpridos)
                 return false;
@@ -136,6 +150,7 @@ export default {
             let metadeDaPena = this.anosTotais / 2;
             return this.anosCumpridos >= metadeDaPena;
         },
+
         cumpriuDoisTercosDaPena() {
             if (!this.anosTotais || !this.anosCumpridos)
                 return false;
@@ -143,6 +158,59 @@ export default {
             let doisTercosDaPena = this.anosTotais * (2/3);
             return this.anosCumpridos >= doisTercosDaPena;
         },
+        
+        aptoAoLivramento() {
+            if (!this.anosTotais || !this.anosCumpridos)
+                return null;
+
+            let motivos = this.verificarMotivosNaoApto();
+    
+            return {
+                'status': motivos.length === 0,
+                'motivos': motivos
+            }
+        },
+    },
+
+    methods: {
+        setEstaAptoAoLivramento(condicao) {
+            this.estaAptoAoLivramento = condicao;
+        },
+
+        penaEhInferior2Anos(pena) {
+            return pena <= 2;
+        },
+
+        verificarMotivosNaoApto() {
+            let motivos = [];
+
+            if (this.penaEhInferior2Anos(this.anosTotais)) {
+                motivos.push("Pena não é superior a 2 anos");
+            }
+
+            else if (this.ehCrimeHediondo) {
+                if (!this.cumpriuDoisTercosDaPena)
+                    motivos.push("Não cumpriu ⅔ da pena");
+
+                if (this.ehReincidenteEmCrimeDoloso)
+                    motivos.push("É reincidente no crime");
+            }
+
+            else if (this.ehReincidenteEmCrimeDoloso) {
+                if (!this.cumpriuMetadeDaPena)
+                    motivos.push("Não cumpriu ½ da pena");
+            } 
+            
+            else {
+                if (!this.cumpriuUmTercoDaPena)
+                    motivos.push("Não cumpriu ⅓ da pena");
+                
+                if (!this.temBonsAntecedentes)
+                    motivos.push("Não tem bons antecedentes");
+            }
+
+            return motivos;
+        }
     }
 
 }
